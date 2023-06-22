@@ -2,6 +2,7 @@
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <URL> <DESTINATION>"
+  echo "   eg: $0  https://civitai.com/api/download/models/15236 /workspace/stable-diffusion-webui/models/Stable-diffusion"
   exit 1
 fi
 
