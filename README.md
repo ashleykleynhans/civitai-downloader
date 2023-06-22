@@ -10,13 +10,13 @@ chmod +x /usr/local/bin/download-model
 ## Usage
 
 ```bash
-download-model [URL]
+download-model [URL] [DESTINATION]
 ```
 
 eg:
 
 ```bash
-download-model https://civitai.com/api/download/models/15236 
+download-model https://civitai.com/api/download/models/15236 /workspace/stable-diffusion-webui/models/Stable-diffusion
 ```
 
 ## NOTE
