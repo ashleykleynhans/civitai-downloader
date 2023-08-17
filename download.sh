@@ -19,7 +19,7 @@ echo "Downloading model from ${URL}, please wait..."
 
 cd ${DESTINATION}
 
-if ! curl -JsL --remote-name -A "${USER_AGENT_STRING}" "${URL}"; then
+if ! curl -JL --remote-name -A "${USER_AGENT_STRING}" "${URL}"; then
   echo "ERROR: curl command failed. Unable to download the file."
   exit 1
 fi
