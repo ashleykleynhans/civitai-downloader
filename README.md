@@ -1,6 +1,6 @@
-# Bash Solid Diffusion models downloader from CivitAI
+# CivitAI Solid Diffusion models downloader
 
-**Give this script a CivitAI.com model link and it will download the model and places it in the corect folder in your Stable Diffusion (SD) Automatic111 installation. Uses Curl.**
+**Give this bash script a CivitAI.com model link and it will download the model and places it in the corect folder in your Stable Diffusion (SD) Automatic111 installation. Uses Curl.**
 
 It downloads and installs:
 - Checkpoints
@@ -41,7 +41,7 @@ That's it...
 download-model [UI] [type] [link]
 ```
 
-You specify which SD user interface [UI] you are using, what type of SD model [type] you are downloading and lastly the download link [link] of the model from CivitAI.ai. 
+You specify which SD user interface you are using [UI], what type of SD model you are downloading [type] and lastly the download link of the model from CivitAI.ai [link]. 
 
 Example: 
 ```bash
@@ -69,6 +69,7 @@ The Stable Diffusion user interface. Currently only Automatic111 is supported.
 | va         | VAE                 |
 
 [link]
+
 The the model download link NOT the URL of the page.
 
 
