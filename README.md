@@ -1,4 +1,4 @@
-# CivitAI Solid Diffusion models downloader
+# CivitAI Stable Diffusion models downloader
 
 **Give this bash script a CivitAI.com model link and it will download the model and places it in the corect folder in your Stable Diffusion (SD) Automatic111 installation. Uses Curl.**
 
