@@ -1,5 +1,7 @@
 # Bash script to download models from CivitAI using curl
 
+What's New: Changed the arguments format
+
 ## Installation
 
 ```bash
