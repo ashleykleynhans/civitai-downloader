@@ -99,7 +99,7 @@ Argument #3: The download link of the model from the model page, not thr URL of
 | ti         | Textual Inversion   |
 | ag         | Aesthetic Gradients |
 | hp         | Hyper Network       |
-| va        | VAE                 |
+| va         | VAE                 |
 
 Configuration: The only configuration needed is to define the SD UI path.
 If this is not already configured for you then edit this script and set the
