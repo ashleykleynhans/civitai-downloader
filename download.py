@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import argparse
+import time
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
@@ -82,30 +83,50 @@ def download_file(url, token):
     else:
         raise Exception('No redirect found, something went wrong')
 
-    # Download the file
     total_size = response.getheader('Content-Length')
+
     if total_size is not None:
         total_size = int(total_size)
 
     with open(filename, 'wb') as f:
         downloaded = 0
+        start_time = time.time()
 
         while True:
+            chunk_start_time = time.time()
             buffer = response.read(CHUNK_SIZE)
+            chunk_end_time = time.time()
 
             if not buffer:
                 break
 
             downloaded += len(buffer)
             f.write(buffer)
+            chunk_time = chunk_end_time - chunk_start_time
+
+            if chunk_time > 0:
+                speed = len(buffer) / chunk_time / (1024 ** 2)  # Speed in MB/s
 
             if total_size is not None:
                 progress = downloaded / total_size
-                sys.stdout.write(f'\rDownloading: {filename} [{progress*100:.2f}%]')
+                sys.stdout.write(f'\rDownloading: {filename} [{progress*100:.2f}%] - {speed:.2f} MB/s')
                 sys.stdout.flush()
+
+    end_time = time.time()
+    time_taken = end_time - start_time
+    hours, remainder = divmod(time_taken, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    if hours > 0:
+        time_str = f'{int(hours)}h {int(minutes)}m {int(seconds)}s'
+    elif minutes > 0:
+        time_str = f'{int(minutes)}m {int(seconds)}s'
+    else:
+        time_str = f'{int(seconds)}s'
 
     sys.stdout.write('\n')
     print(f'Download completed. File saved as: {filename}')
+    print(f'Downloaded in {time_str}')
 
 
 def main():
