@@ -3,8 +3,8 @@
 ## Installation
 
 ```bash
-git clone https://github.com/ashleykleynhans/civitai-downloader.git
-mv civitai-downloader/download.py /usr/local/bin/download-model
+wget https://raw.githubusercontent.com/ashleykleynhans/civitai-downloader/main/download.py
+mv download.py /usr/local/bin/download-model
 chmod +x /usr/local/bin/download-model
 ```
 ## Usage
