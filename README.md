@@ -16,7 +16,7 @@ download-model [URL]
 eg:
 
 ```bash
-download-model https://civitai.com/api/download/models/15236
+download-model https://civitai.com/api/download/models/46846
 ```
 
 ## NOTE
