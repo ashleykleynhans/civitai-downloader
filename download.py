@@ -9,6 +9,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 
 CHUNK_SIZE = 1638400
 TOKEN_FILE = Path.home() / '.civitai' / 'config'
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
 
 
 def get_args():
@@ -35,10 +36,8 @@ def get_token():
 
 
 def store_token(token):
-    # Ensure the directory exists
     TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-    # Write the token to the file
     with open(TOKEN_FILE, 'w') as file:
         file.write(token)
 
@@ -50,12 +49,10 @@ def prompt_for_civitai_token():
 
 
 def download_file(url, token):
-    # Prepare the initial request with necessary headers
     headers = {
         'Authorization': f'Bearer {token}',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        'User-Agent': USER_AGENT,
     }
-    request = urllib.request.Request(url, headers=headers)
 
     # Disable automatic redirect handling
     class NoRedirection(urllib.request.HTTPErrorProcessor):
@@ -63,6 +60,7 @@ def download_file(url, token):
             return response
         https_response = http_response
 
+    request = urllib.request.Request(url, headers=headers)
     opener = urllib.request.build_opener(NoRedirection)
     response = opener.open(request)
 
@@ -80,6 +78,8 @@ def download_file(url, token):
             raise Exception('Unable to determine filename')
 
         response = urllib.request.urlopen(redirect_url)
+    elif response.status == 404:
+        raise Exception('File not found')
     else:
         raise Exception('No redirect found, something went wrong')
 
@@ -136,7 +136,10 @@ def main():
     if not token:
         token = prompt_for_civitai_token()
 
-    download_file(args.url, token)
+    try:
+        download_file(args.url, token)
+    except Exception as e:
+        print(f'ERROR: {e}')
 
 
 if __name__ == '__main__':
