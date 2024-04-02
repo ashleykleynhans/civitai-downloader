@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os.path
 import sys
 import argparse
 import time
@@ -20,7 +21,13 @@ def get_args():
     parser.add_argument(
         'url',
         type=str,
-        help='CivitAI Download URL'
+        help='CivitAI Download URL, eg: https://civitai.com/api/download/models/46846'
+    )
+
+    parser.add_argument(
+        'output_path',
+        type=str,
+        help='Output path, eg: /workspace/stable-diffusion-webui/models/Stable-diffusion'
     )
 
     return parser.parse_args()
@@ -35,7 +42,7 @@ def get_token():
         return None
 
 
-def store_token(token):
+def store_token(token: str):
     TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     with open(TOKEN_FILE, 'w') as file:
@@ -48,7 +55,7 @@ def prompt_for_civitai_token():
     return token
 
 
-def download_file(url, token):
+def download_file(url: str, output_path: str, token: str):
     headers = {
         'Authorization': f'Bearer {token}',
         'User-Agent': USER_AGENT,
@@ -88,7 +95,9 @@ def download_file(url, token):
     if total_size is not None:
         total_size = int(total_size)
 
-    with open(filename, 'wb') as f:
+    output_file = os.path.join(output_path, filename)
+
+    with open(output_file, 'wb') as f:
         downloaded = 0
         start_time = time.time()
 
@@ -137,7 +146,7 @@ def main():
         token = prompt_for_civitai_token()
 
     try:
-        download_file(args.url, token)
+        download_file(args.url, args.output_path, token)
     except Exception as e:
         print(f'ERROR: {e}')
 
