@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os.path
+import os
 import sys
 import argparse
 import time
@@ -7,148 +7,96 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-
 CHUNK_SIZE = 1638400
 TOKEN_FILE = Path.home() / '.civitai' / 'config'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
 
 
-def get_args():
-    parser = argparse.ArgumentParser(
-        description='CivitAI Downloader',
-    )
-
-    parser.add_argument(
-        'url',
-        type=str,
-        help='CivitAI Download URL, eg: https://civitai.com/api/download/models/46846'
-    )
-
-    parser.add_argument(
-        'output_path',
-        type=str,
-        help='Output path, eg: /workspace/stable-diffusion-webui/models/Stable-diffusion'
-    )
-
+def parse_args():
+    parser = argparse.ArgumentParser(description='Batch CivitAI Downloader')
+    parser.add_argument('--input', nargs='+', required=True, help='List of model URLs or a path to a text file')
+    parser.add_argument('--output', required=True, help='Output directory to store models')
     return parser.parse_args()
 
 
 def get_token():
     try:
-        with open(TOKEN_FILE, 'r') as file:
-            token = file.read()
-            return token
-    except Exception as e:
-        return None
+        with open(TOKEN_FILE, 'r') as f:
+            return f.read().strip()
+    except Exception:
+        token = input('Enter your CivitAI API token: ').strip()
+        TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(TOKEN_FILE, 'w') as f:
+            f.write(token)
+        return token
 
 
-def store_token(token: str):
-    TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(TOKEN_FILE, 'w') as file:
-        file.write(token)
-
-
-def prompt_for_civitai_token():
-    token = input('Please enter your CivitAI API token: ')
-    store_token(token)
-    return token
+def extract_filename_from_redirect(url):
+    parsed_url = urlparse(url)
+    query_params = parse_qs(parsed_url.query)
+    content_disp = query_params.get('response-content-disposition', [None])[0]
+    if content_disp and 'filename=' in content_disp:
+        return unquote(content_disp.split('filename=')[1].strip('"'))
+    return None
 
 
-def download_file(url: str, output_path: str, token: str):
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'User-Agent': USER_AGENT,
-    }
+def download_file(url, output_dir, token):
+    headers = {'Authorization': f'Bearer {token}', 'User-Agent': USER_AGENT}
 
-    # Disable automatic redirect handling
-    class NoRedirection(urllib.request.HTTPErrorProcessor):
-        def http_response(self, request, response):
-            return response
+    class NoRedirect(urllib.request.HTTPErrorProcessor):
+        def http_response(self, request, response): return response
         https_response = http_response
 
-    request = urllib.request.Request(url, headers=headers)
-    opener = urllib.request.build_opener(NoRedirection)
-    response = opener.open(request)
+    req = urllib.request.Request(url, headers=headers)
+    opener = urllib.request.build_opener(NoRedirect)
+    response = opener.open(req)
 
     if response.status in [301, 302, 303, 307, 308]:
         redirect_url = response.getheader('Location')
-
-        # Extract filename from the redirect URL
-        parsed_url = urlparse(redirect_url)
-        query_params = parse_qs(parsed_url.query)
-        content_disposition = query_params.get('response-content-disposition', [None])[0]
-
-        if content_disposition:
-            filename = unquote(content_disposition.split('filename=')[1].strip('"'))
-        else:
-            raise Exception('Unable to determine filename')
-
+        filename = extract_filename_from_redirect(redirect_url)
+        if not filename:
+            raise Exception("Unable to extract filename from redirect URL")
         response = urllib.request.urlopen(redirect_url)
-    elif response.status == 404:
-        raise Exception('File not found')
     else:
-        raise Exception('No redirect found, something went wrong')
+        raise Exception(f"Unexpected HTTP status: {response.status}")
 
-    total_size = response.getheader('Content-Length')
+    total_size = int(response.getheader('Content-Length', 0))
+    filepath = os.path.join(output_dir, filename)
 
-    if total_size is not None:
-        total_size = int(total_size)
-
-    output_file = os.path.join(output_path, filename)
-
-    with open(output_file, 'wb') as f:
+    with open(filepath, 'wb') as f:
         downloaded = 0
-        start_time = time.time()
-
+        start = time.time()
         while True:
-            chunk_start_time = time.time()
-            buffer = response.read(CHUNK_SIZE)
-            chunk_end_time = time.time()
-
-            if not buffer:
+            chunk = response.read(CHUNK_SIZE)
+            if not chunk:
                 break
-
-            downloaded += len(buffer)
-            f.write(buffer)
-            chunk_time = chunk_end_time - chunk_start_time
-
-            if chunk_time > 0:
-                speed = len(buffer) / chunk_time / (1024 ** 2)  # Speed in MB/s
-
-            if total_size is not None:
-                progress = downloaded / total_size
-                sys.stdout.write(f'\rDownloading: {filename} [{progress*100:.2f}%] - {speed:.2f} MB/s')
+            f.write(chunk)
+            downloaded += len(chunk)
+            if total_size:
+                percent = (downloaded / total_size) * 100
+                sys.stdout.write(f'\r{filename}: {percent:.2f}%')
                 sys.stdout.flush()
-
-    end_time = time.time()
-    time_taken = end_time - start_time
-    hours, remainder = divmod(time_taken, 3600)
-    minutes, seconds = divmod(remainder, 60)
-
-    if hours > 0:
-        time_str = f'{int(hours)}h {int(minutes)}m {int(seconds)}s'
-    elif minutes > 0:
-        time_str = f'{int(minutes)}m {int(seconds)}s'
-    else:
-        time_str = f'{int(seconds)}s'
-
-    sys.stdout.write('\n')
-    print(f'Download completed. File saved as: {filename}')
-    print(f'Downloaded in {time_str}')
+        sys.stdout.write('\n')
+    print(f'Download complete: {filename}')
 
 
 def main():
-    args = get_args()
+    args = parse_args()
     token = get_token()
+    urls = []
 
-    if not token:
-        token = prompt_for_civitai_token()
+    for item in args.input:
+        if os.path.isfile(item):
+            with open(item, 'r') as f:
+                urls.extend([line.strip() for line in f if line.strip()])
+        else:
+            urls.append(item.strip())
 
-    try:
-        download_file(args.url, args.output_path, token)
-    except Exception as e:
-        print(f'ERROR: {e}')
+    for url in urls:
+        try:
+            download_file(url, args.output, token)
+        except Exception as e:
+            print(f'Failed to download {url}: {e}')
 
 
 if __name__ == '__main__':
