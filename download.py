@@ -112,7 +112,8 @@ def main():
                 print(f'Invalid AIR: {air}')
                 continue
             else:
-                model_id = parsed_air[5]
+                model_id = parsed_air[5].split('@')
+                model_id = model_id[1] if len(model_id) == 2 else model_id[0]
                 model_format = parsed_air[6] if len(parsed_air) == 7 else 'safetensor'
                 url = f'https://civitai.com/api/download/models/{model_id}?type=Model&format={model_format}'
                 urls.append(url)
