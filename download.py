@@ -14,8 +14,10 @@ USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Batch CivitAI Downloader')
-    parser.add_argument('--input', nargs='+', required=True, help='List of model URLs or a path to a text file')
-    parser.add_argument('--output', required=True, help='Output directory to store models')
+    parser.add_argument('--url', "-u", nargs='+', required=True, help='List of model URLs or a path to a text file')
+    parser.add_argument('--token', "-t", help='CivitAI API token')
+    parser.add_argument("--air", "-a", nargs="+", help="Use Artificial Intelligence Resource from CivitAI model page; see https://github.com/civitai/civitai/wiki/AIR-%E2%80%90-Uniform-Resource-Names-for-AI for more")
+    parser.add_argument('--local-dir', "-l", required=True, help='Output directory to store models')
     return parser.parse_args()
 
 
@@ -23,12 +25,15 @@ def get_token():
     try:
         with open(TOKEN_FILE, 'r') as f:
             return f.read().strip()
-    except Exception:
+    except FileNotFoundError:
         token = input('Enter your CivitAI API token: ').strip()
         TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(TOKEN_FILE, 'w') as f:
             f.write(token)
         return token
+    except Exception as e:
+        print(f'Failed to read token file: {e}')
+        sys.exit(1)
 
 
 def extract_filename_from_redirect(url):
@@ -82,16 +87,44 @@ def download_file(url, output_dir, token):
 
 def main():
     args = parse_args()
+    if args.air and args.url:
+        print('Only one of --url and --air can be specified')
+        sys.exit(1)
     token = get_token()
     urls = []
-
-    for item in args.input:
-        if os.path.isfile(item):
-            with open(item, 'r') as f:
-                urls.extend([line.strip() for line in f if line.strip()])
-        else:
-            urls.append(item.strip())
-
+    if args.air is not None:
+        """    
+        urn: Uniform Resource Name optional
+        air: Artificial Intelligence Resource optional
+        {ecosystem}: Type of the ecosystem (sd1, sd2, sdxl)
+        {type}: Type of the resource (model, lora, embedding, hypernet)
+        {source}: Supported network source
+        {id}: Id of the resource from the source
+        {format}: The format of the model (safetensor, ckpt, diffuser, tensor rt) optional
+        """
+        for air in args.air:
+            # example: urn:air:flux1:lora:civitai:667004@746484
+            # https://civitai.com/api/download/models/746484?type=Model&format=SafeTensor
+            #
+            # parse the air to get the model
+            parsed_air = air.split(':')
+            if len(parsed_air) < 6:
+                print(f'Invalid AIR: {air}')
+                continue
+            else:
+                model_id = parsed_air[5]
+                model_format = parsed_air[6] if len(parsed_air) == 7 else 'safetensor'
+                url = f'https://civitai.com/api/download/models/{model_id}?type=Model&format={model_format}'
+                urls.append(url)
+    if args.url is not None:
+        urls = args.url
+        for url in urls:
+            if not url.startswith('http') or "civitai.com" not in url:
+                print(f'Invalid URL: {url}')
+                urls.remove(url)
+                continue
+            else:
+                print(f'Found URL: {url}')
     for url in urls:
         try:
             download_file(url, args.output, token)
