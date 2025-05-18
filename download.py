@@ -4,6 +4,7 @@ import sys
 import argparse
 import time
 import urllib.request
+from http.client import HTTPException
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
@@ -45,7 +46,7 @@ def extract_filename_from_redirect(url):
     return None
 
 
-def download_file(url, output_dir, token):
+def download_file(url, local_dir, token):
     headers = {'Authorization': f'Bearer {token}', 'User-Agent': USER_AGENT}
 
     class NoRedirect(urllib.request.HTTPErrorProcessor):
@@ -60,13 +61,13 @@ def download_file(url, output_dir, token):
         redirect_url = response.getheader('Location')
         filename = extract_filename_from_redirect(redirect_url)
         if not filename:
-            raise Exception("Unable to extract filename from redirect URL")
+            raise ValueError("Unable to extract filename from redirect URL")
         response = urllib.request.urlopen(redirect_url)
     else:
-        raise Exception(f"Unexpected HTTP status: {response.status}")
+        raise HTTPException(f'Failed to download {url}: {response.status}')
 
     total_size = int(response.getheader('Content-Length', 0))
-    filepath = os.path.join(output_dir, filename)
+    filepath = os.path.join(local_dir, filename)
 
     with open(filepath, 'wb') as f:
         downloaded = 0
@@ -130,7 +131,7 @@ def main():
                 print(f'Found URL: {url}')
     for url in urls:
         try:
-            download_file(url, args.output, token)
+            download_file(url, args.local_dir, token)
         except Exception as e:
             print(f'Failed to download {url}: {e}')
 
