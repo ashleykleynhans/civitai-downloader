@@ -7,6 +7,7 @@ import urllib.request
 from http.client import HTTPException
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
+import requests
 
 CHUNK_SIZE = 1638400
 TOKEN_FILE = Path.home() / '.civitai' / 'config'
@@ -19,6 +20,7 @@ def parse_args():
     parser.add_argument('--token', "-t", help='CivitAI API token')
     parser.add_argument("--air", "-a", nargs="+", help="Use Artificial Intelligence Resource from CivitAI model page; see https://github.com/civitai/civitai/wiki/AIR-%E2%80%90-Uniform-Resource-Names-for-AI for more")
     parser.add_argument('--local-dir', "-l", required=True, help='Output directory to store models')
+    parser.add_argument("--debug", action="store_true", help="Print debug messages")
     return parser.parse_args()
 
 
@@ -46,7 +48,7 @@ def extract_filename_from_redirect(url):
     return None
 
 
-def download_file(url, local_dir, token):
+def download_file(url, local_dir, token, debug=False):
     headers = {'Authorization': f'Bearer {token}', 'User-Agent': USER_AGENT}
 
     class NoRedirect(urllib.request.HTTPErrorProcessor):
@@ -56,13 +58,27 @@ def download_file(url, local_dir, token):
     req = urllib.request.Request(url, headers=headers)
     opener = urllib.request.build_opener(NoRedirect)
     response = opener.open(req)
-
+    if debug:
+        print(f'Response headers: {response.headers}')
+        print(f'Response status: {response.status}')
+        print(f"Response text: {response.}")
     if response.status in [301, 302, 303, 307, 308]:
         redirect_url = response.getheader('Location')
         filename = extract_filename_from_redirect(redirect_url)
         if not filename:
             raise ValueError("Unable to extract filename from redirect URL")
         response = urllib.request.urlopen(redirect_url)
+    elif response.status in [400, 401, 403]:
+        raise HTTPException(f'Access denied for {url}: {response.status}')
+    elif response.status == 200:
+        filename = [
+            extract_filename_from_redirect(response.getheader('Location')) or
+            os.path.basename(urlparse(url).path)
+        ]
+    elif response.status in [404, 410]:
+        raise HTTPException(f'Resource not found: {url}')
+    elif response.status in [500, 502, 503, 504]:
+        raise HTTPException(f'Server error: {url}')
     else:
         raise HTTPException(f'Failed to download {url}: {response.status}')
 
@@ -131,7 +147,7 @@ def main():
                 print(f'Found URL: {url}')
     for url in urls:
         try:
-            download_file(url, args.local_dir, token)
+            download_file(url, args.local_dir, token, args.debug)
         except Exception as e:
             print(f'Failed to download {url}: {e}')
 
