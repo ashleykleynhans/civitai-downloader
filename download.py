@@ -198,11 +198,6 @@ def download_model(url, local_dir, token):
 
 def main():
     args = parse_args()
-    if args.air and args.url:
-        print("Only one of --url and --air can be specified")
-        sys.exit(1)
-    elif not (args.air or args.url):
-        print("At least one of --url or --air must be specified")
     token = get_token()
 
     validated_urls = []
