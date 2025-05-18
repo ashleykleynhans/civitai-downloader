@@ -14,7 +14,7 @@ USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Batch CivitAI Downloader')
-    parser.add_argument('--url', "-u", nargs='+', required=True, help='List of model URLs or a path to a text file')
+    parser.add_argument('--url', "-u", nargs='+', help='List of model URLs or a path to a text file')
     parser.add_argument('--token', "-t", help='CivitAI API token')
     parser.add_argument("--air", "-a", nargs="+", help="Use Artificial Intelligence Resource from CivitAI model page; see https://github.com/civitai/civitai/wiki/AIR-%E2%80%90-Uniform-Resource-Names-for-AI for more")
     parser.add_argument('--local-dir', "-l", required=True, help='Output directory to store models')
@@ -90,6 +90,8 @@ def main():
     if args.air and args.url:
         print('Only one of --url and --air can be specified')
         sys.exit(1)
+    elif not (args.air or args.url):
+        print('At least one of --url or --air must be specified')
     token = get_token()
     urls = []
     if args.air is not None:
