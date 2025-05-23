@@ -42,10 +42,11 @@ def main():
             # parse the air to get the model
             air_dict = parse_air(air)
             if air_dict.get("format") is None:
-                model_data = get_model_data(
-                    air_dict.get("version"), token
-                )
-            url = build_civitai_download_url(air_dict)
+                model_data = get_model_data(air_dict.get("version"), token, debug=debug)
+            url = build_civitai_download_url(air_dict, debug=debug)
+            print(
+                f"Found AIR: {air} -> {url} (version: {air_dict.get('version')}, format: {model_data.get('format')})"
+            )
             validated_urls[url] = model_data
     elif args.url is not None:
         for url in args.url:
@@ -53,20 +54,26 @@ def main():
                 print(f"Invalid URL: {url}")
             else:
                 print(f"Found URL: {url}")
-                validated_urls[url] = get_model_data(parse_url(url)["version"], token)
-    for url in validated_urls:
+                validated_urls[url] = get_model_data(
+                    parse_url(url)["version"], token, debug=debug
+                )
+    for url, md in validated_urls.items():
+        print(f"Downloading {url}...")
         try:
 
-            files = select_model_files(files=url["files"], size=args.size, fp=args.fp)
+            files = select_model_files(files=md["files"], size=args.size, fp=args.fp)
             if files is None:
                 print(f"Skipping {url}: No model files match constraints")
                 continue
             for f in files:
                 print(f"Found file: {f.get('name')}")
-                if not args.include_companions and f.get("type","") != "Model":
+                if not args.include_companions and f.get("type", "") != "Model":
                     print(f"Skipping companion file {f.get('name')}")
-                elif (not args.force_unsafe and f.get("type","") == "Model" and
-                        f.get("metadata", {}).get("format").lower() != "safetensor"):
+                elif (
+                    not args.force_unsafe
+                    and f.get("type", "") == "Model"
+                    and f.get("metadata", {}).get("format").lower() != "safetensor"
+                ):
                     print(
                         f"Skipping unsafe file {f.get('name')} (type: {f.get('type')})"
                     )
@@ -82,7 +89,9 @@ def main():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Batch CivitAI Downloader", add_help=True)
+    parser = argparse.ArgumentParser(
+        description="Batch CivitAI Downloader", add_help=True
+    )
 
     # Mutually exclusive group: only one of --url or --air
     group = parser.add_mutually_exclusive_group(required=True)
@@ -95,13 +104,22 @@ def parse_args():
         nargs="+",
         help="AIR strings (see https://github.com/civitai/civitai/wiki/AIR-%%E2%%80%%90-Uniform-Resource-Names-for-AI)",
     )
-    parser.add_argument("--size", choices=["full", "pruned"],
-                        help="Only download models with the given size metadata.")
-    parser.add_argument("--fp", choices=[8, 16, 32],
-                        help="Only download models with the given floating point precision.")
+    parser.add_argument(
+        "--size",
+        choices=["full", "pruned"],
+        help="Only download models with the given size metadata.",
+    )
+    parser.add_argument(
+        "--fp",
+        choices=[8, 16, 32],
+        help="Only download models with the given floating point precision.",
+    )
     # include companion files (e.g. VAE)
-    parser.add_argument("--include-companions", action="store_true",
-                        help="Include companion files such as VAE or config YAML")
+    parser.add_argument(
+        "--include-companions",
+        action="store_true",
+        help="Include companion files such as VAE or config YAML",
+    )
     # Other unrelated flags are declared separately and unaffected by the group
     parser.add_argument(
         "--force-unsafe",
@@ -190,7 +208,7 @@ def parse_url(url):
         "format": extract_options(query, "format"),
         "size": extract_options(query, "size"),
         "fp": extract_options(query, "fp"),
-        "raw_url": url
+        "raw_url": url,
     }
 
 
@@ -233,7 +251,8 @@ def build_civitai_download_url(air: dict, debug: bool = False) -> str:
     type_param = air.get("type", "Model")  # Civitai expects this capitalization
     format_param = air.get("format", "SafeTensor")  # Optional format
 
-    return f"https://civitai.com/api/download/models/{resource_id}?type={type_param}&format={format_param}"
+    url = f"https://civitai.com/api/download/models/{resource_id}"
+    return url
 
 
 def download_model(url, local_dir, token):
@@ -296,16 +315,20 @@ def set_file_permissions(filepath):
         print("Skipping permission change on Windows.")
 
 
-def select_model_files(files, size=None, fp=None):
-    candidates = [f for f in files if f.get("type") == "Model"]
-    filtered = [f for f in candidates if matches_constraints(f, size, fp)]
+def select_model_files(files, size=None, fp=None, include_companions=False):
+    model_candidates = [f for f in files if f.get("type") == "Model"]
+    companion_candidates = [g for g in files if (g.get("type") in ["VAE", "Other"])]
+    filtered = [f for f in model_candidates if matches_constraints(f, size, fp)]
+    filtered.append(companion_candidates)
 
     if len(filtered) == 1:
         return filtered[0]
     elif len(filtered) == 0:
         return None
     else:
-        print("⚠️ Multiple matching model files found. Use --size and/or --fp to narrow down.")
+        print(
+            "⚠️ Multiple matching model files found. Use --size and/or --fp to narrow down."
+        )
         return None
 
 
