@@ -319,18 +319,8 @@ def select_model_files(files, size=None, fp=None, include_companions=False):
     model_candidates = [f for f in files if f.get("type") == "Model"]
     companion_candidates = [g for g in files if (g.get("type") in ["VAE", "Other"])]
     filtered = [f for f in model_candidates if matches_constraints(f, size, fp)]
-    filtered.append(companion_candidates)
-
-    if len(filtered) == 1:
-        return filtered[0]
-    elif len(filtered) == 0:
-        return None
-    else:
-        print(
-            "⚠️ Multiple matching model files found. Use --size and/or --fp to narrow down."
-        )
-        return None
-
+    filtered.extend(companion_candidates)
+    return filtered
 
 def matches_constraints(file, size=None, fp=None):
     meta = file.get("metadata", {})
