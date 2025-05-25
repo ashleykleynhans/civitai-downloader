@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 import argparse
+import pathlib
 import platform
 import re
 import sys
-from pathlib import Path
 from time import time
 from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
 from requests import HTTPError
 
-TOKEN_FILE = Path.home() / ".civitai" / "config"
+TOKEN_FILE = pathlib.Path.home() / ".civitai" / "config"
 CHUNK_SIZE = 16 * 1024 * 1024  # 16 MB
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible)",
@@ -279,7 +279,10 @@ def download_model(url, local_dir, token):
                 print(f" - {resp.status_code} -> {resp.url}")
 
         filename = extract_filename(r)
-        output_path = Path(local_dir) / filename
+        sanitized_filename = sanitize_filename(filename)
+        raw_output_path = pathlib.Path(local_dir) / sanitized_filename
+        output_path = raw_output_path.expanduser().resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         total = int(r.headers.get("Content-Length", 0))
         downloaded = 0
         start = time()
@@ -304,7 +307,27 @@ def extract_filename(resp):
     cd = resp.headers.get("Content-Disposition")
     if cd and "filename=" in cd:
         return unquote(cd.split("filename=")[1].strip('"'))
-    return Path(resp.url).name  # fallback
+    return pathlib.Path(resp.url).name  # fallback
+
+
+def sanitize_filename(header_filename, default_name=None):
+    if not header_filename:
+        return default_name
+    # Extract the base name to prevent path traversal
+    name = pathlib.Path(header_filename).name
+    # Remove or replace invalid characters (basic example)
+    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', name)
+    # Ensure it's not empty after sanitization
+    if not name.strip():
+        print("Warning: Sanitization failed, using default filename.")
+        # Fallback to default_name if sanitization fails
+        # If no default name is provided, warn and use civitai_download_<timestamp>
+        if default_name:
+            name = default_name
+        else:
+            print("Warning: No default filename provided, using civitai_download_<timestamp>.")
+            name = f"civitai_download_{int(time())}"
+    return name
 
 
 def set_file_permissions(filepath):
