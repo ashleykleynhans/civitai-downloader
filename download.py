@@ -36,7 +36,7 @@ def get_args():
 def get_token():
     try:
         with open(TOKEN_FILE, 'r') as file:
-            token = file.read()
+            token = file.read().strip()
             return token
     except Exception as e:
         return None
