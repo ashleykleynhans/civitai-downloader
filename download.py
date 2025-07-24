@@ -74,15 +74,28 @@ def download_file(url: str, output_path: str, token: str):
     if response.status in [301, 302, 303, 307, 308]:
         redirect_url = response.getheader('Location')
 
+        # Handle relative redirects
+        if redirect_url.startswith('/'):
+            base_url = urlparse(url)
+            redirect_url = f"{base_url.scheme}://{base_url.netloc}{redirect_url}"
+
         # Extract filename from the redirect URL
         parsed_url = urlparse(redirect_url)
         query_params = parse_qs(parsed_url.query)
         content_disposition = query_params.get('response-content-disposition', [None])[0]
 
-        if content_disposition:
+        if content_disposition and 'filename=' in content_disposition:
             filename = unquote(content_disposition.split('filename=')[1].strip('"'))
         else:
-            raise Exception('Unable to determine filename')
+            # Fallback: extract filename from URL path
+            path = parsed_url.path
+            if path and '/' in path:
+                filename = path.split('/')[-1]
+            else:
+                filename = 'downloaded_file'
+
+            if not filename:
+                raise Exception('Unable to determine filename')
 
         response = urllib.request.urlopen(redirect_url)
     elif response.status == 404:
