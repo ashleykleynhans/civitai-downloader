@@ -15,8 +15,7 @@ API key.  You can create the API key as follows:
 ## Installation
 
 ```bash
-wget https://raw.githubusercontent.com/ashleykleynhans/civitai-downloader/main/download.py
-mv download.py /usr/local/bin/download-model
+curl -L https://raw.githubusercontent.com/ashleykleynhans/civitai-downloader/main/download.py -o /usr/local/bin/download-model
 chmod +x /usr/local/bin/download-model
 ```
 
@@ -28,23 +27,24 @@ chmod +x /usr/local/bin/download-model
 > [!IMPORTANT]
 > It is important to ensure that you use the **DOWNLOAD** link
 > and not the link to the model page in CivitAI.
+> You can get the model id even from CivitAI main url. Eg. `https://civitai.com/models/1234567?modelVersionId=46846` the model_id will be `46846`
 
 ## Usage
 
 ```bash
-download-model [URL] [DESTINATION]
+download-model [MODEL_ID] [DESTINATION]
 ```
 
 To download to the current directory:
 
 ```bash
-download-model https://civitai.com/api/download/models/46846 .
+download-model 46846 .
 ```
 
 To download to a different directory:
 
 ```bash
-download-model https://civitai.com/api/download/models/46846 /workspace/stable-diffusion-webui/models/Stable-diffusion
+download-model 46846 /workspace/stable-diffusion-webui/models/Stable-diffusion
 ```
 
 ## Community and Contributing
