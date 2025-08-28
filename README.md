@@ -52,6 +52,8 @@ To download to a different directory:
 download-model https://civitai.com/api/download/models/46846 /workspace/stable-diffusion-webui/models/Stable-diffusion
 ```
 
+The environment variable `CIVITAI_TOKEN` used to retrieve the token from the env is configurable via the env variable `CIVITAI_TOKEN_NAME`. Is also possible to configure the CivitAI download url using the env variable `CIVITAI_BASE_URL`
+
 ## Community and Contributing
 
 Pull requests and issues on [GitHub](https://github.com/ashleykleynhans/civitai-downloader)
