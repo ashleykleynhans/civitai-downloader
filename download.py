@@ -8,11 +8,13 @@ import zipfile
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
+
 CHUNK_SIZE = 1638400
 TOKEN_FILE = Path.home() / '.civitai' / 'config'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
 DEFAULT_ENV_NAME = os.getenv("CIVITAI_TOKEN_NAME", "CIVITAI_TOKEN")
 CIVITAI_BASE_URL = 'https://civitai.com/api/download/models'
+
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -33,6 +35,7 @@ def get_args():
 
     return parser.parse_args()
 
+
 def get_token():
     token = os.getenv(DEFAULT_ENV_NAME, None)
     if token:
@@ -44,16 +47,19 @@ def get_token():
     except Exception as e:
         return None
 
+
 def store_token(token: str):
     TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     with open(TOKEN_FILE, 'w') as file:
         file.write(token)
 
+
 def prompt_for_civitai_token():
     token = input('Please enter your CivitAI API token: ')
     store_token(token)
     return token
+
 
 def download_file(model_id: str, output_path: str, token: str):
     headers = {
@@ -159,6 +165,7 @@ def download_file(model_id: str, output_path: str, token: str):
         except Exception as e:
             print(f'ERROR: Failed to unzip the file. {e}')
 
+
 def main():
     args = get_args()
     token = get_token()
@@ -170,6 +177,7 @@ def main():
         download_file(args.model_id, args.output_path, token)
     except Exception as e:
         print(f'ERROR: {e}')
+
 
 if __name__ == '__main__':
     main()
