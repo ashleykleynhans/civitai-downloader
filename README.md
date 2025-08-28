@@ -27,12 +27,15 @@ chmod +x /usr/local/bin/download-model
 ## Usage
 
 ```bash
+export CIVITAI_TOKEN=<your_token>
 download-model [MODEL_ID_OR_URL] [DESTINATION]
 ```
 
 To download to the current directory:
 
 ```bash
+export CIVITAI_TOKEN=<your_token>
+
 # Example download with model_id:
 download-model 46846 .
 
