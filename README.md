@@ -24,27 +24,29 @@ chmod +x /usr/local/bin/download-model
 > user.  If not, the installation commands should be prefixed
 > with `sudo`.
 
-> [!IMPORTANT]
-> It is important to ensure that you use the **DOWNLOAD** link
-> and not the link to the model page in CivitAI.
-> You can get the model id even from CivitAI main url. Eg. `https://civitai.com/models/1234567?modelVersionId=46846` the model_id will be `46846`
-
 ## Usage
 
 ```bash
-download-model [MODEL_ID] [DESTINATION]
+download-model [MODEL_ID_OR_URL] [DESTINATION]
 ```
 
 To download to the current directory:
 
 ```bash
+# Example download with model_id:
 download-model 46846 .
+
+# Example download with model dowload url:
+download-model https://civitai.com/api/download/models/46846 .
+
+# Example download with model url:
+download-model "https://civitai.com/models/12345678?modelVersionId=46846" .
 ```
 
 To download to a different directory:
 
 ```bash
-download-model 46846 /workspace/stable-diffusion-webui/models/Stable-diffusion
+download-model https://civitai.com/api/download/models/46846 /workspace/stable-diffusion-webui/models/Stable-diffusion
 ```
 
 ## Community and Contributing
