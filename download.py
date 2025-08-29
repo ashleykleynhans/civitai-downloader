@@ -17,7 +17,7 @@ DEFAULT_ENV_NAME = os.getenv('CIVITAI_TOKEN_NAME', 'CIVITAI_TOKEN')
 CIVITAI_BASE_URL = os.getenv('CIVITAI_BASE_URL', 'https://civitai.com/api/download/models')
 
 
-def get_args():
+def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description='CivitAI Downloader',
     )
