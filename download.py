@@ -141,7 +141,10 @@ def download_file(model_url_or_id: str, output_path: str, token: str) -> None:
         total_size = int(total_size)
 
     output_file = os.path.join(output_path, filename)
-
+    if os.path.isfile(output_file) and os.path.getsize(output_file) > 0:
+        print(f'File {output_file} already present on filesystem')
+        return 
+    
     with open(output_file, 'wb') as f:
         downloaded = 0
         start_time = time.time()
