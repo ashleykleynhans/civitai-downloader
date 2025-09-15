@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-import os
-import re
-import sys
+import os, re, sys, time
 import argparse
-import time
 import urllib.request
 import zipfile
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
+from typing import Optional
 
 
 CHUNK_SIZE = 1638400
@@ -37,7 +35,7 @@ def get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_token() -> str | None:
+def get_token() -> Optional[str]:
     token = os.getenv(DEFAULT_ENV_NAME, None)
     if token:
         return token
@@ -62,7 +60,7 @@ def prompt_for_civitai_token() -> str:
     return token
 
 
-def extract_id(url: str) -> str | None:
+def extract_id(url: str) -> Optional[str]:
     """
     Extracts the model version ID from a CivitAI URL.
     
