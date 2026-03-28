@@ -1,30 +1,28 @@
 #!/usr/bin/env python3
-import os
-import sys
+import os, re, sys, time, json
 import argparse
-import time
 import urllib.request
 import zipfile
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
-
+from typing import Optional
 
 CHUNK_SIZE = 1638400
 TOKEN_FILE = Path.home() / '.civitai' / 'config'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-DEFAULT_ENV_NAME = os.getenv("CIVITAI_TOKEN_NAME", "CIVITAI_TOKEN")
-CIVITAI_BASE_URL = 'https://civitai.com/api/download/models'
+DEFAULT_ENV_NAME = os.getenv('CIVITAI_TOKEN_NAME', 'CIVITAI_TOKEN')
+CIVITAI_BASE_URL = os.getenv('CIVITAI_BASE_URL', 'https://civitai.com/api')
 
 
-def get_args():
+def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description='CivitAI Downloader',
     )
 
     parser.add_argument(
-        'model_id',
+        'model_url_or_id',
         type=str,
-        help='CivitAI Download Model ID, eg: 46846'
+        help='Model Version Id or full URL, eg: 46846 or https://civitai.com/models/1234567?modelVersionId=46846'
     )
 
     parser.add_argument(
@@ -36,7 +34,7 @@ def get_args():
     return parser.parse_args()
 
 
-def get_token():
+def get_token() -> Optional[str]:
     token = os.getenv(DEFAULT_ENV_NAME, None)
     if token:
         return token
@@ -48,20 +46,64 @@ def get_token():
         return None
 
 
-def store_token(token: str):
+def store_token(token: str) -> None:
     TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     with open(TOKEN_FILE, 'w') as file:
         file.write(token)
 
 
-def prompt_for_civitai_token():
+def prompt_for_civitai_token() -> str:
     token = input('Please enter your CivitAI API token: ')
     store_token(token)
     return token
 
 
-def download_file(model_id: str, output_path: str, token: str):
+def extract_id(url: str) -> Optional[str]:
+    """
+    Extracts the model version ID from a CivitAI URL.
+    
+    - https://civitai.com/models/1234567?modelVersionId=46846
+    """
+    # Pattern: query param modelVersionId=XXXX
+    match = re.search(r"modelVersionId=(\d+)", url)
+    if match:
+        return match.group(1)
+    return None
+
+
+def get_model_name(model_id: str, headers: dict, url: str) -> str:
+    filename = None
+    if model_id:
+        model_details_req = urllib.request.Request(f'{CIVITAI_BASE_URL}/v1/model-versions/{model_id}', headers=headers)
+        model_details_resp = urllib.request.urlopen(model_details_req)
+        try:
+            json_resp = json.loads(model_details_resp.read().decode('utf-8'))
+            model_files = json_resp['files']
+            primary_file = next((f for f in model_files if f.get('primary')), None)
+            if primary_file:
+                filename = primary_file['name']
+        except Exception as e:
+            print('Cannot retreive model version details from CivitAI API, falling back to filename extraction from URL')
+    
+    if not filename:
+        # Extract filename from the redirect URL
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
+        content_disposition = query_params.get('response-content-disposition', [None])[0]
+
+        if content_disposition and 'filename=' in content_disposition:
+            filename = unquote(content_disposition.split('filename=')[1].strip('"'))
+        else:
+            # Fallback: extract filename from URL path
+            path = parsed_url.path
+            if path and '/' in path:
+                filename = path.split('/')[-1]
+    return filename
+
+
+def download_file(model_url_or_id: str, output_path: str, token: str) -> None:
+
     headers = {
         'Authorization': f'Bearer {token}',
         'User-Agent': USER_AGENT,
@@ -73,49 +115,63 @@ def download_file(model_id: str, output_path: str, token: str):
             return response
         https_response = http_response
 
-    url = f'{CIVITAI_BASE_URL}/{model_id}'
+    url = None
+    initial_response = None
+    final_response = None
+    model_id = None
+    if model_url_or_id.isdigit():
+        model_id = model_url_or_id
+        url = f'{CIVITAI_BASE_URL}/download/models/{model_id}'
+    elif f'{CIVITAI_BASE_URL}/download/models/' in model_url_or_id:
+        model_id = model_url_or_id.split('/')[-1]
+        url = model_url_or_id
+    elif 'modelVersionId' in model_url_or_id:
+        model_id = extract_id(model_url_or_id)
+        if model_id:
+            url = f'{CIVITAI_BASE_URL}/download/models/{model_id}'
+
+    if not url:
+        raise Exception('Invalid model URL or ID')
+
     request = urllib.request.Request(url, headers=headers)
     opener = urllib.request.build_opener(NoRedirection)
-    response = opener.open(request)
+    initial_response = opener.open(request)
 
-    if response.status in [301, 302, 303, 307, 308]:
-        redirect_url = response.getheader('Location')
+    if initial_response.status in [301, 302, 303, 307, 308]:
+        redirect_url = initial_response.getheader('Location')
 
         # Handle relative redirects
         if redirect_url.startswith('/'):
             base_url = urlparse(url)
             redirect_url = f"{base_url.scheme}://{base_url.netloc}{redirect_url}"
 
-        # Extract filename from the redirect URL
-        parsed_url = urlparse(redirect_url)
-        query_params = parse_qs(parsed_url.query)
-        content_disposition = query_params.get('response-content-disposition', [None])[0]
-
-        if content_disposition and 'filename=' in content_disposition:
-            filename = unquote(content_disposition.split('filename=')[1].strip('"'))
-        else:
-            # Fallback: extract filename from URL path
-            path = parsed_url.path
-            if path and '/' in path:
-                filename = path.split('/')[-1]
-            else:
-                filename = 'downloaded_file'
-
-            if not filename:
-                raise Exception('Unable to determine filename')
-
-        response = urllib.request.urlopen(redirect_url)
-    elif response.status == 404:
+        # Add headers to the second call
+        redirect_request = urllib.request.Request(redirect_url, headers=headers)
+        final_response = opener.open(redirect_request)
+        if final_response.status == 400:
+            redirect_request = urllib.request.Request(redirect_url)
+            final_response = opener.open(redirect_request)
+    elif initial_response.status == 404:
         raise Exception('File not found')
     else:
         raise Exception('No redirect found, something went wrong')
 
-    total_size = response.getheader('Content-Length')
+    # Use final_response if redirect occurred, otherwise use initial_response
+    download_response = final_response if final_response else initial_response
 
+    total_size = download_response.getheader('Content-Length')
     if total_size is not None:
         total_size = int(total_size)
 
+    filename = get_model_name(model_id, headers, redirect_url if final_response else url)
+    if not filename:
+        raise Exception('Unable to determine filename from CivitAI API or URL')
+
+    print(f'Starting download: {filename}')
     output_file = os.path.join(output_path, filename)
+    if os.path.isfile(output_file) and os.path.getsize(output_file) > 0:
+        print(f'File {output_file} already present on filesystem')
+        return
 
     with open(output_file, 'wb') as f:
         downloaded = 0
@@ -123,7 +179,7 @@ def download_file(model_id: str, output_path: str, token: str):
 
         while True:
             chunk_start_time = time.time()
-            buffer = response.read(CHUNK_SIZE)
+            buffer = download_response.read(CHUNK_SIZE)
             chunk_end_time = time.time()
 
             if not buffer:
@@ -134,7 +190,7 @@ def download_file(model_id: str, output_path: str, token: str):
             chunk_time = chunk_end_time - chunk_start_time
 
             if chunk_time > 0:
-                speed = len(buffer) / chunk_time / (1024 ** 2)  # Speed in MB/s
+                speed = len(buffer) / chunk_time / (1024 ** 2) # Speed in MB/s
 
             if total_size is not None:
                 progress = downloaded / total_size
@@ -174,7 +230,7 @@ def main():
         token = prompt_for_civitai_token()
 
     try:
-        download_file(args.model_id, args.output_path, token)
+        download_file(args.model_url_or_id, args.output_path, token)
     except Exception as e:
         print(f'ERROR: {e}')
 
