@@ -32,8 +32,11 @@ chmod +x /usr/local/bin/download-model
 ## Usage
 
 ```bash
-download-model [MODEL_ID] [DESTINATION]
+download-model [MODEL_ID] [DESTINATION] [--nsfw]
 ```
+
+> [!NOTE]
+> By default, only SFW content is downloaded. Use the `--nsfw` flag to allow NSFW content.
 
 To download to the current directory:
 
@@ -45,6 +48,12 @@ To download to a different directory:
 
 ```bash
 download-model 46846 /workspace/stable-diffusion-webui/models/Stable-diffusion
+```
+
+To download NSFW content:
+
+```bash
+download-model 46846 . --nsfw
 ```
 
 ## Community and Contributing
