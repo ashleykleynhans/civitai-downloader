@@ -89,22 +89,27 @@ def download_file(model_id: str, output_path: str, token: str):
         # Extract filename from the redirect URL
         parsed_url = urlparse(redirect_url)
         query_params = parse_qs(parsed_url.query)
-        content_disposition = query_params.get('response-content-disposition', [None])[0]
+        content_disposition = (
+            query_params.get('response-content-disposition', [None])[0]
+            or query_params.get('b2ContentDisposition', [None])[0]
+        )
 
         if content_disposition and 'filename=' in content_disposition:
             filename = unquote(content_disposition.split('filename=')[1].strip('"'))
         else:
-            # Fallback: extract filename from URL path
             path = parsed_url.path
-            if path and '/' in path:
-                filename = path.split('/')[-1]
-            else:
-                filename = 'downloaded_file'
+            filename = path.split('/')[-1] if path and '/' in path else ''
 
-            if not filename:
-                raise Exception('Unable to determine filename')
+        redirect_request = urllib.request.Request(redirect_url, headers={'User-Agent': USER_AGENT})
+        response = urllib.request.urlopen(redirect_request)
 
-        response = urllib.request.urlopen(redirect_url)
+        if not filename:
+            cd_header = response.getheader('Content-Disposition')
+            if cd_header and 'filename=' in cd_header:
+                filename = unquote(cd_header.split('filename=')[1].strip('"'))
+
+        if not filename:
+            raise Exception('Unable to determine filename')
     elif response.status == 404:
         raise Exception('File not found')
     else:
